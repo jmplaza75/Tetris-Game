@@ -41,7 +41,7 @@ static int run_loop(Renderer *renderer, bool smoke_test)
             accumulator -= FIXED_STEP_SECONDS;
         }
 
-        if (!renderer_draw(renderer)) {
+        if (!renderer_draw(renderer, &game)) {
             fprintf(stderr, "Render failed: %s\n", SDL_GetError());
             return EXIT_FAILURE;
         }

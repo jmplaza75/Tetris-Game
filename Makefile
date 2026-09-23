@@ -9,7 +9,9 @@ MODE ?= debug
 BUILD_DIR := build/$(MODE)
 TARGET := $(BUILD_DIR)/tetris
 TEST_TARGET := $(BUILD_DIR)/test_lifecycle
-SOURCES := src/main.c src/game.c src/input.c src/renderer.c
+ENGINE_OBJECTS := $(BUILD_DIR)/game.o $(BUILD_DIR)/board.o $(BUILD_DIR)/piece.o
+ENGINE_TEST := $(BUILD_DIR)/test_engine
+SOURCES := src/main.c src/game.c src/board.c src/piece.c src/input.c src/renderer.c
 OBJECTS := $(SOURCES:src/%.c=$(BUILD_DIR)/%.o)
 SDL_CFLAGS = $(shell "$(SDL_CONFIG)" --cflags)
 SDL_LIBS = $(shell "$(SDL_CONFIG)" --libs)
@@ -45,8 +47,11 @@ $(BUILD_DIR)/%.o: src/%.c | check-sdl $(BUILD_DIR)
 $(TARGET): $(OBJECTS)
 	$(CC) $(COMPILE_FLAGS) $(LDFLAGS) $^ $(SDL_LIBS) $(LDLIBS) -o $@
 
-$(TEST_TARGET): tests/test_lifecycle.c $(BUILD_DIR)/game.o $(BUILD_DIR)/input.o include/game.h include/input.h | check-sdl
-	$(CC) $(CPPFLAGS) -Iinclude $(SDL_CFLAGS) $(COMPILE_FLAGS) $(LDFLAGS) tests/test_lifecycle.c $(BUILD_DIR)/game.o $(BUILD_DIR)/input.o $(SDL_LIBS) $(LDLIBS) -o $@
+$(TEST_TARGET): tests/test_lifecycle.c $(ENGINE_OBJECTS) $(BUILD_DIR)/input.o $(wildcard include/*.h) | check-sdl
+	$(CC) $(CPPFLAGS) -Iinclude $(SDL_CFLAGS) $(COMPILE_FLAGS) $(LDFLAGS) tests/test_lifecycle.c $(ENGINE_OBJECTS) $(BUILD_DIR)/input.o $(SDL_LIBS) $(LDLIBS) -o $@
+
+$(ENGINE_TEST): tests/test_engine.c $(ENGINE_OBJECTS) $(wildcard include/*.h)
+	$(CC) $(CPPFLAGS) -Iinclude $(COMPILE_FLAGS) $(LDFLAGS) tests/test_engine.c $(ENGINE_OBJECTS) $(LDLIBS) -o $@
 
 run: $(TARGET)
 	./$(TARGET)
@@ -60,7 +65,8 @@ release:
 sanitize:
 	$(MAKE) MODE=sanitize test
 
-test: $(TARGET) $(TEST_TARGET)
+test: $(TARGET) $(TEST_TARGET) $(ENGINE_TEST)
+	./$(ENGINE_TEST)
 	./$(TEST_TARGET)
 	SDL_VIDEODRIVER=dummy ./$(TARGET) --smoke-test
 

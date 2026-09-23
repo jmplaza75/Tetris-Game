@@ -2,10 +2,11 @@
 
 Written from scratch in C. Targeted at Apple Silicon ARM64.
 
-Implementación incremental de Tetris en C17 y SDL2. **Fase 1 completada:**
-ventana redimensionable de 800 × 720, eventos, bucle con actualización fija
-a 60 Hz y liberación de recursos. Por ahora se muestra un fondo oscuro;
-el tablero y las piezas se incorporarán en la Fase 2.
+Implementación incremental de Tetris en C17 y SDL2. **Fase 2 completada:**
+ventana redimensionable de 800 × 720, bucle con actualización fija a 60 Hz,
+tablero de 10 × 24 (20 filas visibles y 4 ocultas) y representación mediante
+bitmasks de los siete tetrominós. Al arrancar aparece una T morada sobre la
+cuadrícula centrada. La pieza permanece inmóvil hasta implementar la Fase 3.
 
 ## Compilar y ejecutar
 
@@ -48,20 +49,24 @@ asm/        Reservado para experimentos ARM64 de fases posteriores
 build/      Binarios y objetos separados por configuración (ignorado)
 ```
 
-Consulta [la arquitectura](docs/ARCHITECTURE.md). Los módulos de tablero,
-piezas y reglas se añadirán conforme se implementen. No hay todavía lógica
-de Tetris, audio, benchmarks ni rutinas Assembly.
+Consulta [la arquitectura](docs/ARCHITECTURE.md). No hay todavía movimiento,
+gravedad, colisiones, rotaciones, bloqueo, audio, benchmarks ni rutinas Assembly.
 
 ## Verificación manual
 
-Ejecuta `make run`, comprueba que aparece la ventana, cambia su tamaño y
+Ejecuta `make run`, comprueba la cuadrícula de 10 × 20 y los cuatro bloques
+de la T morada en la parte superior, cambia el tamaño de la ventana y
 ciérrala con Esc. Vuelve a abrirla y comprueba el botón de cierre.
-`make test` prueba los eventos y tres frames con el controlador SDL dummy;
+`make test` prueba el tablero, las siete formas, el spawn, los eventos y
+tres frames con el controlador SDL dummy;
 esa prueba no sustituye la comprobación visual de la ventana nativa.
 
-Validación de la Fase 1: debug y release compilados para ARM64 sin warnings;
-`make test` y el arranque nativo con `--smoke-test` completados correctamente.
-La ejecución con ASan/UBSan no se ha podido validar en este entorno: la SDL2
+Validación de la Fase 2: debug y release compilados para ARM64 sin warnings;
+`make test`, el arranque nativo con `--smoke-test` y la inspección del
+renderizado completados correctamente. Las pruebas del motor sin SDL también
+pasan con ASan/UBSan (`make MODE=sanitize build/sanitize/test_engine` y
+`./build/sanitize/test_engine`).
+La ejecución completa con ASan/UBSan no se ha podido validar en este entorno: la SDL2
 instalada aborta o queda bloqueada en su inicializador `dllinit`, antes de
 entrar en `main`. El objetivo `make sanitize` está disponible, pero esta
 comprobación queda pendiente en un entorno compatible.

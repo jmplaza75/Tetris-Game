@@ -2,10 +2,14 @@
 #define TETRIS_GAME_H
 
 #include <stdbool.h>
+#include "board.h"
+#include "piece.h"
 
-/* The engine has no SDL dependency. Gameplay will be added in later phases. */
+/* The active piece remains separate from the locked cells in the board. */
 typedef struct {
     bool running;
+    Board board;
+    Piece current_piece;
 } Game;
 
 void game_init(Game *game);
