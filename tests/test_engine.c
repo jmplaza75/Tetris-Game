@@ -2,6 +2,10 @@
 #include <stdio.h>
 #include "game.h"
 
+void test_motion(void);
+void test_lines(void);
+void test_rotation(void);
+
 static void test_board(void)
 {
     Board board;
@@ -78,7 +82,7 @@ static void test_initialization(void)
     assert(game.current_piece.x == 3);
     assert(game.current_piece.y == BOARD_HIDDEN_ROWS);
     game_update(&game, 1.0);
-    assert(game.current_piece.y == BOARD_HIDDEN_ROWS);
+    assert(game.current_piece.y == BOARD_HIDDEN_ROWS + 1);
     for (int y = 0; y < BOARD_ROWS; ++y) {
         assert(game.board.rows[y] == 0);
     }
@@ -89,6 +93,9 @@ int main(void)
     test_board();
     test_pieces();
     test_initialization();
+    test_motion();
+    test_lines();
+    test_rotation();
     puts("Board, seven tetrominoes and spawn: OK");
     return 0;
 }

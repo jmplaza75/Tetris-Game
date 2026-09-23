@@ -2,11 +2,21 @@
 
 Written from scratch in C. Targeted at Apple Silicon ARM64.
 
-Implementación incremental de Tetris en C17 y SDL2. **Fase 2 completada:**
+Implementación incremental de Tetris en C17 y SDL2. **Fase 5 y caída rápida implementadas:**
 ventana redimensionable de 800 × 720, bucle con actualización fija a 60 Hz,
 tablero de 10 × 24 (20 filas visibles y 4 ocultas) y representación mediante
 bitmasks de los siete tetrominós. Al arrancar aparece una T morada sobre la
-cuadrícula centrada. La pieza permanece inmóvil hasta implementar la Fase 3.
+cuadrícula centrada. Se mueve con las flechas izquierda/derecha y cae una
+fila por segundo, respetando los límites y las celdas ocupadas.
+Tras tocar el suelo o una pieza, hay 500 ms para ajustar la posición antes
+del bloqueo. Los bloques conservan su color, las filas completas desaparecen
+y las superiores bajan. A continuación aparece otra pieza.
+
+La secuencia provisional es T → Z → I → J → L → O → S, repetida;
+el randomizador 7-bag llegará en la Fase 6. Si una nueva pieza no cabe,
+se detiene la partida y se avisa en el título de la ventana. Por ahora hay
+que salir y volver a abrirla para reiniciar. La interfaz de game over y el
+reinicio corresponden a la Fase 8; puntuación y niveles, a la Fase 7.
 
 ## Compilar y ejecutar
 
@@ -27,12 +37,23 @@ Se puede configurar con `make SDL_PREFIX=/otra/ruta` o
 make debug       # -O0 -g, warnings tratados como errores
 make release     # -O2; salida independiente en build/release/
 make MODE=release run
-make test        # eventos de salida y arranque SDL2 sin pantalla
+make test        # motor, colisiones, movimiento, eventos y arranque SDL2
 make sanitize    # las mismas comprobaciones con ASan y UBSan
 make clean
 ```
 
 ## Controles actuales
+
+- **↑ / X**: rotación horaria.
+- **Z**: rotación antihoraria.
+- **↓ mantenida**: caída rápida a 30 filas por segundo; al soltar vuelve a la gravedad normal.
+
+Las rotaciones usan SRS, con ajustes junto a paredes y suelo. La pieza O mantiene su forma.
+
+Pulsa **← / →** para mover; mantenlas para repetir (DAS 150 ms, ARR 40 ms).
+Si mantienes ambas, tiene prioridad la última pulsada; al soltarla se retoma
+la otra con un movimiento inmediato y un nuevo DAS. Al perder el foco se
+liberan ambas teclas; la gravedad continúa. Los tiempos están en `include/game.h`.
 
 Pulsa **Esc** o cierra la ventana para salir. Puedes redimensionarla;
 el renderizador conserva la proporción del espacio lógico de 800 × 720.
@@ -49,21 +70,26 @@ asm/        Reservado para experimentos ARM64 de fases posteriores
 build/      Binarios y objetos separados por configuración (ignorado)
 ```
 
-Consulta [la arquitectura](docs/ARCHITECTURE.md). No hay todavía movimiento,
-gravedad, colisiones, rotaciones, bloqueo, audio, benchmarks ni rutinas Assembly.
+Consulta [la arquitectura](docs/ARCHITECTURE.md). No hay todavía hard drop, audio, benchmarks ni rutinas Assembly.
 
 ## Verificación manual
 
 Ejecuta `make run`, comprueba la cuadrícula de 10 × 20 y los cuatro bloques
-de la T morada en la parte superior, cambia el tamaño de la ventana y
+de la T morada en la parte superior. Comprueba su caída, pulsa y mantén
+las flechas hasta ambos laterales y espera a que se fije en el suelo y
+aparezca una Z. Completa una fila para verla desaparecer; los bloques que
+estaban encima deben descender manteniendo su color.
+Cambia de aplicación mientras mantienes una flecha: al volver no debe
+seguir moviéndose lateralmente. Cambia el tamaño de la ventana y
 ciérrala con Esc. Vuelve a abrirla y comprueba el botón de cierre.
-`make test` prueba el tablero, las siete formas, el spawn, los eventos y
+`make test` prueba el tablero, las siete formas, el spawn, colisiones,
+gravedad, DAS/ARR, bloqueo, limpieza de filas y colores, spawn bloqueado,
+liberación de teclas, eventos y
 tres frames con el controlador SDL dummy;
 esa prueba no sustituye la comprobación visual de la ventana nativa.
 
-Validación de la Fase 2: debug y release compilados para ARM64 sin warnings;
-`make test`, el arranque nativo con `--smoke-test` y la inspección del
-renderizado completados correctamente. Las pruebas del motor sin SDL también
+Validación de rotación y caída rápida: debug y release compilados para ARM64 sin warnings;
+`make test` completado correctamente. Las pruebas del motor sin SDL también
 pasan con ASan/UBSan (`make MODE=sanitize build/sanitize/test_engine` y
 `./build/sanitize/test_engine`).
 La ejecución completa con ASan/UBSan no se ha podido validar en este entorno: la SDL2

@@ -1,4 +1,4 @@
-# Arquitectura de la Fase 2
+# Arquitectura con rotación y caída rápida
 
 `main.c` inicializa SDL, crea el renderizador y controla el ciclo de vida.
 Ante un fallo devuelve un código distinto de cero y muestra el error de SDL.
@@ -12,7 +12,8 @@ main → input_process → game_update (paso fijo) → renderer_draw
 ```
 
 `Game` contiene la condición de ejecución, el tablero y la pieza activa.
-Su función de actualización es el punto de entrada para la futura lógica.
+Su función de actualización aplica repetición horizontal y gravedad mediante
+temporizadores en segundos; todos se reinicializan en `game_init`.
 La pieza activa se mantiene separada de las celdas fijadas en el tablero.
 
 `Board` almacena 24 filas mediante `uint16_t`: los diez bits inferiores
@@ -22,16 +23,57 @@ fuera del tablero; no es una función de colisión ni autoriza movimientos.
 
 `Piece` almacena tipo, posición, orientación y una máscara de 16 bits.
 El bit `y * 4 + x` representa la celda local `(x, y)`, con origen arriba a
-la izquierda. Se incluyen las siete formas en orientación inicial; los
-estados restantes y SRS se implementarán en la Fase 5. `piece_spawn` valida
+la izquierda. Se incluyen las siete formas y cuatro orientaciones. `rotation_try` rota
+en una caja de 3 × 3 para J/L/S/T/Z y de 4 × 4 para I, usando los centros SRS.
+La O conserva posición y forma. Se prueban cinco posiciones, con una tabla
+de kicks propia para I y otra compartida para las demás; un fallo conserva
+el estado original. Referencia: [SRS](https://tetris.wiki/Super_Rotation_System). `piece_spawn` valida
 el tipo y restablece la pieza sin modificar el tablero ni comprobar colisiones.
-La posición inicial es `(3, 4)` para mostrar la forma completa en esta fase
-sin gravedad. La futura lógica podrá usar las filas ocultas para el spawn.
+La posición inicial es `(3, 4)` para mostrar la forma completa desde el inicio.
+La futura lógica podrá usar las filas ocultas para el spawn.
+
+`collision_at` comprueba exclusivamente los cuatro bloques de la pieza, no
+su caja de 4 × 4. Cada bloque debe estar dentro de las 10 × 24 celdas y no
+superponerse a un bit ocupado. Así, una caja puede salir parcialmente del
+tablero cuando las celdas que quedan fuera están vacías. La consulta no muta
+el tablero ni la pieza; el movimiento solo se aplica si la consulta lo permite.
+
+La gravedad consume un intervalo de un segundo por fila, conservando el
+tiempo sobrante. Cuando encuentra un obstáculo descarta el tiempo pendiente.
+Los intervalos no positivos o no finitos se ignoran; el bucle principal entrega
+pasos de 1/60 s. Una llamada con un intervalo mayor se subdivide para ordenar
+la caída, el contacto y el bloqueo sin cargar a la nueva pieza tiempo anterior.
+
+Al estar apoyada, la pieza acumula 500 ms de lock delay. Un movimiento lateral o giro
+válido reinicia ese plazo hasta 15 veces por pieza; uno rechazado no lo reinicia.
+Si deja de estar apoyada se cancela el tiempo de contacto. `board_lock_piece`
+valida todos los bloques antes de escribir, de modo que un fallo no modifica
+parcialmente el tablero. Cada celda almacena además su tipo más uno en una
+matriz de bytes para conservar el color; la ocupación sigue usando bitmasks.
+
+`board_clear_lines` recorre las 24 filas de abajo arriba, omite las máscaras
+completas y copia las restantes hacia abajo junto con sus colores. Vacía las
+filas superiores sobrantes y devuelve el número eliminado, que `Game` acumula
+en `lines_cleared`. Incluye filas ocultas y elimina también filas no contiguas.
+
+Después se genera la siguiente pieza de una secuencia fija provisional,
+se reinician gravedad, lock delay y DAS, y se comprueba su posición inicial.
+Si está ocupada, `STATE_GAME_OVER` congela el motor, libera las teclas y oculta
+la pieza que no pudo aparecer. Los eventos de salida y el renderizado siguen
+activos; el título de la ventana indica el bloqueo. La UI y reinicio completos
+se añadirán en la Fase 8. La secuencia se sustituirá por 7-bag en la Fase 6.
+
+Cada pulsación horizontal mueve inmediatamente y espera 150 ms (DAS) antes
+de repetir cada 40 ms (ARR). La última dirección pulsada tiene prioridad;
+al soltarla, la otra dirección mantenida comienza de nuevo. Se ignora la
+repetición de eventos de macOS. Perder el foco libera el estado de entrada,
+sin pausar la gravedad. Los tiempos se configuran en `game.h`.
 
 El renderizador centra una cuadrícula de 300 × 600 con celdas de 30 píxeles,
 omite las filas ocultas y recorta las celdas que quedan fuera del área visible.
-Los siete colores se definen en una única tabla. Las celdas fijadas se muestran
-en gris: guardar sus colores se resolverá al implementar el bloqueo de piezas.
+Los siete colores se definen en una única tabla. Las celdas fijadas usan el
+tipo guardado en el tablero; el gris se reserva para ocupación sin metadatos
+de color, por ejemplo en una prueba que establezca bits directamente.
 
 `input.c` consume la cola de eventos en cada frame y solicita la salida al
 recibir Esc o SDL_QUIT. `renderer.c` es propietario de la ventana y del renderer,
@@ -50,3 +92,9 @@ no espera o la pantalla supera 60 Hz. La lógica no depende de ese descanso.
 No hay asignaciones dinámicas propias dentro del bucle. Los recursos SDL se
 gestionan explícitamente. `--smoke-test` ejecuta tres frames y termina usando
 la misma ruta de inicialización, renderizado y limpieza que la ejecución normal.
+
+La tecla ↓ mueve una fila al pulsar y activa un intervalo de caída de 1/30 s.
+Pulsar o soltar reinicia el acumulador para evitar saltos por tiempo pendiente.
+Soltar o perder el foco cancela la caída rápida. ↑/X y Z generan un giro por
+pulsación, ignorando los eventos de repetición del sistema. La caída rápida
+respeta colisiones y lock delay; no añade puntuación todavía.

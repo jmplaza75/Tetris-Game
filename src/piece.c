@@ -18,7 +18,7 @@ bool piece_spawn(Piece *piece, PieceType type)
     }
     *piece = (Piece){
         .x = (BOARD_COLUMNS - PIECE_SIZE) / 2,
-        /* Keep the entire spawn shape visible before gravity is implemented. */
+        /* Spawn fully visible; hidden rows remain available for future spawn rules. */
         .y = BOARD_HIDDEN_ROWS,
         .type = type,
         .orientation = ORIENTATION_0,

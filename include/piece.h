@@ -14,8 +14,7 @@ typedef enum {
     ORIENTATION_0, ORIENTATION_R, ORIENTATION_2, ORIENTATION_L
 } PieceOrientation;
 
-/* Each nibble is a row; bit (y * 4 + x) is local cell (x, y).
- * Only spawn orientation is implemented in Phase 2. */
+/* Each nibble is a row; bit (y * 4 + x) is local cell (x, y). */
 typedef struct {
     int x;
     int y;

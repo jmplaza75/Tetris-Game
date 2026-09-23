@@ -66,8 +66,10 @@ static bool draw_board(Renderer *renderer, const Board *board)
     }
     for (int y = BOARD_HIDDEN_ROWS; y < BOARD_ROWS; ++y) {
         for (int x = 0; x < BOARD_COLUMNS; ++x) {
+            const unsigned int color = board->colors[y][x];
             if (board_is_occupied(board, x, y) &&
-                !draw_cell(renderer, x, y, LOCKED_COLOR)) {
+                !draw_cell(renderer, x, y,
+                           color > 0 && color <= PIECE_COUNT ? PIECE_COLORS[color - 1] : LOCKED_COLOR)) {
                 return false;
             }
         }
@@ -117,6 +119,12 @@ bool renderer_init(Renderer *renderer)
 
 bool renderer_draw(Renderer *renderer, const Game *game)
 {
+    const char *title = game->state == STATE_GAME_OVER ?
+                        "Tetris — zona de aparición ocupada · Esc para salir" :
+                        "Tetris — C / Apple Silicon";
+    if (renderer->window != NULL && SDL_strcmp(SDL_GetWindowTitle(renderer->window), title) != 0) {
+        SDL_SetWindowTitle(renderer->window, title);
+    }
     if (SDL_SetRenderDrawColor(renderer->handle, BACKGROUND_COLOR.r,
                                BACKGROUND_COLOR.g, BACKGROUND_COLOR.b,
                                BACKGROUND_COLOR.a) != 0 ||
@@ -124,7 +132,7 @@ bool renderer_draw(Renderer *renderer, const Game *game)
         return false;
     }
     if (!draw_board(renderer, &game->board) ||
-        !draw_piece(renderer, &game->current_piece)) {
+        (game->state == STATE_PLAYING && !draw_piece(renderer, &game->current_piece))) {
         return false;
     }
     SDL_RenderPresent(renderer->handle);
