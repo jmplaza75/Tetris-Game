@@ -1,4 +1,4 @@
-# Arquitectura de la Fase 7
+# Arquitectura de la Fase 8
 
 `main.c` inicializa SDL, crea el renderizador y controla el ciclo de vida.
 Ante un fallo devuelve un código distinto de cero y muestra el error de SDL.
@@ -60,8 +60,8 @@ Después se toma la primera pieza de la cola NEXT,
 se reinician gravedad, lock delay y DAS, y se comprueba su posición inicial.
 Si está ocupada, `STATE_GAME_OVER` congela el motor, libera las teclas y oculta
 la pieza que no pudo aparecer. Los eventos de salida y el renderizado siguen
-activos; el título de la ventana indica el bloqueo. La UI y reinicio completos
-se añadirán en la Fase 8.
+activos; el título y un panel GAME OVER indican el bloqueo y ofrecen R para
+reiniciar o Esc para salir.
 
 Cada pulsación horizontal mueve inmediatamente y espera 150 ms (DAS) antes
 de repetir cada 40 ms (ARR). La última dirección pulsada tiene prioridad;
@@ -144,7 +144,36 @@ acotado al alcanzar el mínimo. Soft drop usa el menor intervalo entre esa
 gravedad y 1/30 s. Solo las filas recorridas con soft drop activo suman un
 punto; la gravedad normal y los intentos bloqueados no puntúan.
 
-`preview.c` reutiliza sus glifos para mostrar SCORE, LINES y LEVEL, con cifras
+`preview.c` reutiliza los glifos de `text.c` para mostrar SCORE, LINES y LEVEL, con cifras
 que reducen su escala si no caben. Los tests verifican aterrizaje de todas las
 piezas y orientaciones sobre obstáculos, ausencia de mutación, bloqueo inmediato,
 puntuación de 1–4 líneas, cruce de nivel, caídas, gravedad y eventos de Espacio.
+
+## Pausa, reinicio e interfaz
+
+La máquina de estados contiene PLAYING, PAUSED y GAME_OVER. P alterna entre
+PLAYING y PAUSED; no cambia GAME_OVER. Solo PLAYING admite movimientos,
+giros, hold, caídas y actualizaciones. Durante PAUSED se conservan gravedad,
+lock delay y DAS sin consumir tiempo, mientras SDL sigue procesando eventos
+y dibujando. Al pausar se liberan las teclas mantenidas sin reiniciar esos
+relojes, incluso si se pierde el foco; para mover al reanudar hay que pulsar
+otra vez. La pérdida de foco por sí sola sigue sin pausar la partida.
+
+`game_restart(game, seed)` delega en la inicialización completa: restablece
+el tablero y sus colores, pieza activa, bolsa, NEXT, HOLD, puntuación, líneas,
+nivel, entrada y todos los temporizadores. R usa una nueva semilla del reloj
+SDL, y las pruebas usan semillas explícitas. Funciona desde los tres estados,
+pero nunca revierte una solicitud de salida. La ventana y el renderer se
+conservan; no se reinicia el proceso ni se crean recursos SDL adicionales.
+
+`text.c` contiene los glifos y el dibujo de texto compartido. `preview.c`
+conserva la responsabilidad de HOLD, NEXT y estadísticas. `ui.c` dibuja el
+título, la guía de controles y los paneles de pausa/game over al final del
+frame. La pieza activa permanece visible en pausa; el spawn inválido se
+oculta en game over. Todas las posiciones derivan del espacio lógico y las
+medidas del tablero, por lo que SDL escala la interfaz con la ventana.
+
+Las pruebas cubren bloqueo de acciones en pausa, conservación de temporizadores,
+reanudar un lock parcialmente consumido, spawn ocupado, reinicio desde cada
+estado y eventos P/R sin repetición automática. Se revisaron además imágenes
+del renderizador software de juego, pausa y game over.

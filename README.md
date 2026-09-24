@@ -2,7 +2,7 @@
 
 Written from scratch in C. Targeted at Apple Silicon ARM64.
 
-Implementación incremental de Tetris en C17 y SDL2. **Fase 7 completada:**
+Implementación incremental de Tetris en C17 y SDL2. **Fase 8 completada:**
 ventana redimensionable de 800 × 720, bucle con actualización fija a 60 Hz,
 tablero de 10 × 24 (20 filas visibles y 4 ocultas) y representación mediante
 bitmasks de los siete tetrominós. Al arrancar aparece una pieza aleatoria sobre la
@@ -16,9 +16,10 @@ El randomizador 7-bag mezcla las siete piezas sin repeticiones dentro de cada
 bolsa. NEXT muestra las cinco siguientes en orden de arriba abajo. HOLD permite
 guardar una pieza con C; se muestra atenuada cuando ya se ha usado hasta el
 próximo bloqueo. Si una nueva pieza no cabe,
-se detiene la partida y se avisa en el título de la ventana. Por ahora hay
-que salir y volver a abrirla para reiniciar. La interfaz de game over y el
-reinicio corresponden a la Fase 8.
+se detiene la partida y aparece GAME OVER sobre el tablero. Pulsa R para
+iniciar otra partida sin cerrar la ventana. P pausa y reanuda el juego;
+la pausa conserva el tiempo restante de gravedad y bloqueo. La interfaz
+incluye título, controles, HOLD, NEXT, puntos, líneas y nivel.
 
 La ghost piece muestra con un contorno el aterrizaje de la pieza actual, sin
 modificar la partida. SCORE, LINES y LEVEL se muestran debajo de HOLD.
@@ -55,6 +56,8 @@ make clean
 
 ## Controles actuales
 
+- **P**: pausar o reanudar.
+- **R**: reiniciar desde juego, pausa o game over.
 - **Espacio**: hard drop hasta la silueta y bloqueo inmediato.
 - **C**: guardar o intercambiar pieza (una vez antes de cada bloqueo).
 - **↑ / X**: rotación horaria.
@@ -98,17 +101,22 @@ Comprueba que el contorno sigue los movimientos y giros. Pulsa Espacio:
 la pieza debe fijarse en ese lugar y sumar dos puntos por fila descendida.
 Mantener Espacio no debe soltar más piezas. Verifica los contadores del panel
 y la aceleración al alcanzar diez líneas.
+Pulsa P durante una caída y junto al suelo: espera unos segundos y reanuda
+con P; la pieza debe conservar el tiempo pendiente. R debe vaciar el tablero,
+poner los puntos y líneas a cero, volver al nivel 1 y renovar NEXT y HOLD.
+Apila piezas hasta GAME OVER y comprueba que R inicia otra partida.
 Cambia de aplicación mientras mantienes una flecha: al volver no debe
 seguir moviéndose lateralmente. Cambia el tamaño de la ventana y
 ciérrala con Esc. Vuelve a abrirla y comprueba el botón de cierre.
 `make test` prueba el tablero, las siete formas, el spawn, colisiones,
 gravedad, DAS/ARR, bloqueo, limpieza de filas y colores, spawn bloqueado,
 7-bag (3200 bolsas), continuidad de NEXT, hold, ghost sin mutación, hard drop,
-puntuación de líneas y caídas, niveles, liberación de teclas, eventos y
+puntuación de líneas y caídas, niveles, pausa y conservación de temporizadores,
+reinicio completo desde todos los estados, liberación de teclas, eventos y
 tres frames con el controlador SDL dummy;
 esa prueba no sustituye la comprobación visual de la ventana nativa.
 
-Validación de la Fase 7: debug y release compilados para ARM64 sin warnings;
+Validación de la Fase 8: debug y release compilados para ARM64 sin warnings;
 `make test` completado correctamente. Las pruebas del motor sin SDL también
 pasan con ASan/UBSan (`make MODE=sanitize build/sanitize/test_engine` y
 `./build/sanitize/test_engine`).

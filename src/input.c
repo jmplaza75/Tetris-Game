@@ -22,7 +22,11 @@ void input_process(Game *game)
             } else if (event.key.keysym.sym == SDLK_DOWN) {
                 game_set_soft_drop(game, event.type == SDL_KEYDOWN);
             } else if (event.type == SDL_KEYDOWN) {
-                if (event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_x) {
+                if (event.key.keysym.sym == SDLK_p) {
+                    game_toggle_pause(game);
+                } else if (event.key.keysym.sym == SDLK_r) {
+                    game_restart(game, SDL_GetPerformanceCounter());
+                } else if (event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_x) {
                     (void)game_rotate(game, 1);
                 } else if (event.key.keysym.sym == SDLK_z) {
                     (void)game_rotate(game, -1);

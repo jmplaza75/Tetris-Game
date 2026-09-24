@@ -39,6 +39,22 @@ void game_init_seed(Game *game, uint64_t seed)
     }
 }
 
+void game_toggle_pause(Game *game)
+{
+    if (!game->running || game->state == STATE_GAME_OVER) return;
+    if (game->state == STATE_PLAYING) {
+        game->state = STATE_PAUSED;
+        game_release_input(game);
+    } else {
+        game->state = STATE_PLAYING;
+    }
+}
+
+void game_restart(Game *game, uint64_t seed)
+{
+    if (game->running) game_init_seed(game, seed);
+}
+
 static PieceType take_next(Game *game)
 {
     const PieceType type = game->next[0];
@@ -184,11 +200,12 @@ void game_set_horizontal(Game *game, int direction, bool pressed)
 
 void game_release_input(Game *game)
 {
-    game_set_soft_drop(game, false);
+    if (game->state == STATE_PAUSED) game->down_held = false;
+    else game_set_soft_drop(game, false);
     game->left_held = false;
     game->right_held = false;
     game->horizontal_direction = 0;
-    game->repeat_remaining = 0.0;
+    if (game->state != STATE_PAUSED) game->repeat_remaining = 0.0;
 }
 
 void game_set_soft_drop(Game *game, bool pressed)

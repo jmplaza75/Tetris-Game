@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "preview.h"
+#include "ui.h"
 
 static const SDL_Color BACKGROUND_COLOR = {18, 23, 34, 255};
 static const SDL_Color GRID_COLOR = {40, 49, 65, 255};
@@ -116,7 +117,8 @@ bool renderer_init(Renderer *renderer)
 bool renderer_draw(Renderer *renderer, const Game *game)
 {
     const char *title = game->state == STATE_GAME_OVER ?
-                        "Tetris — zona de aparición ocupada · Esc para salir" :
+                        "Tetris — Game over · R para reiniciar" :
+                        game->state == STATE_PAUSED ? "Tetris — Pausa · P para continuar" :
                         "Tetris — C / Apple Silicon";
     if (renderer->window != NULL && SDL_strcmp(SDL_GetWindowTitle(renderer->window), title) != 0) {
         SDL_SetWindowTitle(renderer->window, title);
@@ -132,7 +134,8 @@ bool renderer_draw(Renderer *renderer, const Game *game)
     if (!preview_draw(renderer, game, PIECE_COLORS) ||
         !draw_board(renderer, &game->board) ||
         (has_ghost && !draw_piece(renderer, &ghost, true)) ||
-        (game->state == STATE_PLAYING && !draw_piece(renderer, &game->current_piece, false))) {
+        (game->state != STATE_GAME_OVER && !draw_piece(renderer, &game->current_piece, false)) ||
+        !ui_draw(renderer, game)) {
         return false;
     }
     SDL_RenderPresent(renderer->handle);

@@ -16,7 +16,7 @@ enum { NEXT_PIECE_COUNT = 5 };
 #define LOCK_DELAY_SECONDS 0.500
 #define LOCK_RESET_LIMIT 15
 
-typedef enum { STATE_PLAYING, STATE_GAME_OVER } GameState;
+typedef enum { STATE_PLAYING, STATE_PAUSED, STATE_GAME_OVER } GameState;
 
 /* The active piece remains separate from the locked cells in the board. */
 typedef struct {
@@ -43,6 +43,8 @@ typedef struct {
 
 void game_init(Game *game);
 void game_init_seed(Game *game, uint64_t seed);
+void game_toggle_pause(Game *game);
+void game_restart(Game *game, uint64_t seed);
 bool game_hold(Game *game);
 /* Read-only landing query; false when no playable, valid active piece exists. */
 bool game_ghost_piece(const Game *game, Piece *ghost);

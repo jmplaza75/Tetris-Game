@@ -5,9 +5,52 @@
 #include "game.h"
 #include "input.h"
 
+static void key(SDL_Keycode code, Uint8 repeat)
+{
+    SDL_Event event = {0};
+    event.type = SDL_KEYDOWN;
+    event.key.keysym.sym = code;
+    event.key.repeat = repeat;
+    assert(SDL_PushEvent(&event) == 1);
+}
+
+static void test_state_events(void)
+{
+    Game game;
+    game_init(&game);
+    key(SDLK_p, 0);
+    input_process(&game);
+    assert(game.state == STATE_PAUSED);
+    key(SDLK_p, 1);
+    key(SDLK_SPACE, 0);
+    key(SDLK_c, 0);
+    input_process(&game);
+    assert(game.state == STATE_PAUSED && game.score == 0 && !game.hold_used);
+    key(SDLK_p, 0);
+    input_process(&game);
+    assert(game.state == STATE_PLAYING);
+    game.score = 42;
+    key(SDLK_r, 1);
+    input_process(&game);
+    assert(game.score == 42);
+    for (int state = STATE_PLAYING; state <= STATE_GAME_OVER; ++state) {
+        game.state = (GameState)state;
+        game.score = 42;
+        key(SDLK_r, 0);
+        input_process(&game);
+        assert(game.state == STATE_PLAYING && game.score == 0 && game.level == 1);
+    }
+    key(SDLK_p, 0);
+    key(SDLK_ESCAPE, 0);
+    key(SDLK_r, 0);
+    input_process(&game);
+    assert(!game.running);
+}
+
 int main(void)
 {
     assert(SDL_Init(SDL_INIT_EVENTS) == 0);
+    test_state_events();
     Game game;
     game_init(&game);
     (void)piece_spawn(&game.current_piece, PIECE_T);
