@@ -1,179 +1,182 @@
-# Arquitectura de la Fase 8
+# Phase 8 Architecture
 
-`main.c` inicializa SDL, crea el renderizador y controla el ciclo de vida.
-Ante un fallo devuelve un código distinto de cero y muestra el error de SDL.
-La salida normal y la salida por error destruyen primero el renderer, después
-la ventana y finalmente los subsistemas SDL.
+`main.c` initializes SDL, creates the renderer, and manages the application
+lifecycle. On failure, it returns a nonzero exit code and reports the SDL error.
+Both normal and error exits destroy the renderer first, then the window, and
+finally shut down the SDL subsystems.
 
 ```text
-main → input_process → game_update (paso fijo) → renderer_draw
+main → input_process → game_update (fixed step) → renderer_draw
             ↓                ↓                        ↓
-          Game         C sin dependencia SDL       ventana SDL2
+          Game         SDL-independent C           SDL2 window
 ```
 
-`Game` contiene la condición de ejecución, el tablero y la pieza activa.
-Su función de actualización aplica repetición horizontal y gravedad mediante
-temporizadores en segundos; todos se reinicializan en `game_init`.
-La pieza activa se mantiene separada de las celdas fijadas en el tablero.
+`Game` contains the running flag, board, and active piece. Its update function
+applies horizontal key repeat and gravity using timers measured in seconds;
+`game_init` resets them all. The active piece remains separate from the locked
+cells on the board.
 
-`Board` almacena 24 filas mediante `uint16_t`: los diez bits inferiores
-representan las columnas de izquierda a derecha. Las filas 0–3 están ocultas;
-el renderizador muestra las filas 4–23. `board_is_occupied` devuelve false
-fuera del tablero; no es una función de colisión ni autoriza movimientos.
+`Board` stores 24 rows as `uint16_t` values: the lower ten bits represent columns
+from left to right. Rows 0–3 are hidden; the renderer displays rows 4–23.
+`board_is_occupied` returns false outside the board; it is not a collision
+function and does not authorize movement.
 
-`Piece` almacena tipo, posición, orientación y una máscara de 16 bits.
-El bit `y * 4 + x` representa la celda local `(x, y)`, con origen arriba a
-la izquierda. Se incluyen las siete formas y cuatro orientaciones. `rotation_try` rota
-en una caja de 3 × 3 para J/L/S/T/Z y de 4 × 4 para I, usando los centros SRS.
-La O conserva posición y forma. Se prueban cinco posiciones, con una tabla
-de kicks propia para I y otra compartida para las demás; un fallo conserva
-el estado original. Referencia: [SRS](https://tetris.wiki/Super_Rotation_System). `piece_spawn` valida
-el tipo y restablece la pieza sin modificar el tablero ni comprobar colisiones.
-La posición inicial es `(3, 4)` para mostrar la forma completa desde el inicio.
-La futura lógica podrá usar las filas ocultas para el spawn.
+`Piece` stores its type, position, orientation, and a 16-bit mask. Bit
+`y * 4 + x` represents local cell `(x, y)`, with the origin at the top left.
+All seven shapes and four orientations are supported. `rotation_try` rotates
+within a 3 × 3 box for J/L/S/T/Z and a 4 × 4 box for I, using SRS centers.
+O keeps its position and shape. Five candidate positions are tested, with a
+separate kick table for I and a shared table for the other rotating pieces;
+failure preserves the original state. Reference:
+[SRS](https://tetris.wiki/Super_Rotation_System). `piece_spawn` validates the type
+and resets the piece without changing the board or checking collisions.
+The initial position is `(3, 4)` so the entire shape is visible immediately.
+Future spawning rules could use the hidden rows.
 
-`collision_at` comprueba exclusivamente los cuatro bloques de la pieza, no
-su caja de 4 × 4. Cada bloque debe estar dentro de las 10 × 24 celdas y no
-superponerse a un bit ocupado. Así, una caja puede salir parcialmente del
-tablero cuando las celdas que quedan fuera están vacías. La consulta no muta
-el tablero ni la pieza; el movimiento solo se aplica si la consulta lo permite.
+`collision_at` checks only the piece's four occupied cells, not its entire
+4 × 4 box. Each cell must lie within the 10 × 24 board and must not overlap
+an occupied bit. The bounding box may therefore extend outside the board when
+its out-of-bounds cells are empty. The query changes neither the board nor the
+piece; movement is applied only when the query allows it.
 
-La gravedad empieza con un intervalo de un segundo por fila, conservando el
-tiempo sobrante. Cuando encuentra un obstáculo descarta el tiempo pendiente.
-Los intervalos no positivos o no finitos se ignoran; el bucle principal entrega
-pasos de 1/60 s. Una llamada con un intervalo mayor se subdivide para ordenar
-la caída, el contacto y el bloqueo sin cargar a la nueva pieza tiempo anterior.
+Gravity starts at one second per row and preserves leftover elapsed time.
+When it encounters an obstacle, it discards pending gravity time. Nonpositive
+or nonfinite update intervals are ignored; the main loop supplies 1/60-second
+steps. Larger intervals are subdivided to keep falling, contact, and locking
+in order without carrying the previous piece's accumulated gravity into its
+replacement.
 
-Al estar apoyada, la pieza acumula 500 ms de lock delay. Un movimiento lateral o giro
-válido reinicia ese plazo hasta 15 veces por pieza; uno rechazado no lo reinicia.
-Si deja de estar apoyada se cancela el tiempo de contacto. `board_lock_piece`
-valida todos los bloques antes de escribir, de modo que un fallo no modifica
-parcialmente el tablero. Cada celda almacena además su tipo más uno en una
-matriz de bytes para conservar el color; la ocupación sigue usando bitmasks.
+A grounded piece accumulates a 500 ms lock delay. A successful horizontal move
+or rotation resets that delay up to 15 times per piece; a rejected action does
+not reset it. Losing contact clears the contact timer. `board_lock_piece`
+validates all cells before writing, so failure never partially changes the
+board. A byte matrix also stores each cell's piece type plus one to preserve
+its color; occupancy continues to use bitmasks.
 
-`board_clear_lines` recorre las 24 filas de abajo arriba, omite las máscaras
-completas y copia las restantes hacia abajo junto con sus colores. Vacía las
-filas superiores sobrantes y devuelve el número eliminado, que `Game` acumula
-en `lines_cleared`. Incluye filas ocultas y elimina también filas no contiguas.
+`board_clear_lines` scans all 24 rows from bottom to top, skips full masks,
+and copies surviving rows downward with their colors. It clears the remaining
+top rows and returns the number removed, which `Game` adds to `lines_cleared`.
+This includes hidden rows and supports nonadjacent full rows.
 
-Después se toma la primera pieza de la cola NEXT,
-se reinician gravedad, lock delay y DAS, y se comprueba su posición inicial.
-Si está ocupada, `STATE_GAME_OVER` congela el motor, libera las teclas y oculta
-la pieza que no pudo aparecer. Los eventos de salida y el renderizado siguen
-activos; el título y un panel GAME OVER indican el bloqueo y ofrecen R para
-reiniciar o Esc para salir.
+The first piece in NEXT is then activated. Gravity, lock delay, and DAS reset,
+and the spawn position is checked. If it is occupied, `STATE_GAME_OVER`
+freezes gameplay, releases held inputs, and hides the piece that could not
+spawn. Exit events and rendering remain active; the window title and a
+GAME OVER panel indicate the failure and offer R to restart or Esc to exit.
 
-Cada pulsación horizontal mueve inmediatamente y espera 150 ms (DAS) antes
-de repetir cada 40 ms (ARR). La última dirección pulsada tiene prioridad;
-al soltarla, la otra dirección mantenida comienza de nuevo. Se ignora la
-repetición de eventos de macOS. Perder el foco libera el estado de entrada,
-sin pausar la gravedad. Los tiempos se configuran en `game.h`.
+Each horizontal key press moves immediately, then waits 150 ms (DAS) before
+repeating every 40 ms (ARR). The last direction pressed takes priority;
+releasing it reactivates the other held direction. macOS repeat events are
+ignored. Losing focus releases input state without pausing gravity. Timing
+constants are configured in `game.h`.
 
-El renderizador centra una cuadrícula de 300 × 600 con celdas de 30 píxeles,
-omite las filas ocultas y recorta las celdas que quedan fuera del área visible.
-Los siete colores se definen en una única tabla. Las celdas fijadas usan el
-tipo guardado en el tablero; el gris se reserva para ocupación sin metadatos
-de color, por ejemplo en una prueba que establezca bits directamente.
+The renderer centers a 300 × 600 grid with 30-pixel cells, omits hidden rows,
+and clips cells outside the visible area. All seven piece colors are defined
+in one table. Locked cells use the type stored in the board; gray is reserved
+for occupied cells without color metadata, such as tests that set bits directly.
 
-`input.c` consume la cola de eventos en cada frame y solicita la salida al
-recibir Esc o SDL_QUIT. `renderer.c` es propietario de la ventana y del renderer,
-usa un color de fondo centralizado y un espacio lógico de 800 × 720.
-SDL adapta este espacio al tamaño de ventana y a pantallas de alta densidad.
+`input.c` drains the event queue each frame and requests exit on Esc or
+SDL_QUIT. `renderer.c` owns the window and renderer, uses a centralized
+background color, and draws in an 800 × 720 logical space. SDL adapts this
+space to the window size and high-density displays.
 
-El reloj de alta resolución alimenta un acumulador en segundos. Cada actualización
-consume 1/60 s independientemente de la frecuencia del renderizado. Se limita
-el tiempo acumulado por frame a 0,25 s para evitar largas recuperaciones tras
-suspender el proceso. No se usa la repetición de teclado del sistema.
+The high-resolution clock feeds an accumulator measured in seconds. Each
+update consumes 1/60 second independently of rendering frequency. Elapsed
+time added per frame is capped at 0.25 seconds to avoid lengthy catch-up after
+process suspension. OS keyboard repeat is not used.
 
-Se solicita renderizado acelerado con VSync y se permite software si no está
-disponible. Un descanso al final del frame limita el consumo cuando VSync
-no espera o la pantalla supera 60 Hz. La lógica no depende de ese descanso.
+Accelerated rendering with VSync is requested, with a software fallback when
+unavailable. A delay at the end of each frame limits resource use when VSync
+does not wait or the display exceeds 60 Hz. Gameplay does not depend on that
+delay.
 
-No hay asignaciones dinámicas propias dentro del bucle. Los recursos SDL se
-gestionan explícitamente. `--smoke-test` ejecuta tres frames y termina usando
-la misma ruta de inicialización, renderizado y limpieza que la ejecución normal.
+The application performs no dynamic allocations of its own inside the game
+loop. SDL resources are managed explicitly. `--smoke-test` runs three frames
+and exits through the same initialization, rendering, and cleanup path as a
+normal run.
 
-La tecla ↓ mueve una fila al pulsar y activa un intervalo de caída de 1/30 s.
-Pulsar o soltar reinicia el acumulador para evitar saltos por tiempo pendiente.
-Soltar o perder el foco cancela la caída rápida. ↑/X y Z generan un giro por
-pulsación, ignorando los eventos de repetición del sistema. La caída rápida
-respeta colisiones y lock delay y suma un punto por cada fila recorrida.
+Pressing Down immediately moves one row and enables a 1/30-second drop
+interval. Pressing or releasing it resets the gravity accumulator to avoid
+jumps caused by pending time. Releasing it or losing focus cancels soft drop.
+Up/X and Z perform one rotation per press, ignoring OS repeat events. Soft
+drop respects collisions and lock delay and awards one point per row traveled.
 
-## Randomizador y cola
+## Randomizer and queue
 
-`Randomizer` pertenece a cada partida y genera bolsas con I/J/L/O/S/T/Z.
-Fisher-Yates las mezcla con SplitMix64 y selección acotada por rechazo para
-no introducir sesgo de módulo. No se usa `rand()` ni estado global. La cola
-contiene siempre cinco tipos: al extraer uno se desplazan los restantes y
-se repone el último desde la bolsa, sin perder piezas al cambiar de bolsa.
-`game_init_seed` permite pruebas reproducibles; `game_init` usa semilla 1,
-mientras la aplicación aporta el contador de alta resolución de SDL.
+Each game owns a `Randomizer` that generates bags containing I/J/L/O/S/T/Z.
+Fisher–Yates shuffles them using SplitMix64 and bounded rejection sampling to
+avoid modulo bias. Neither `rand()` nor global state is used. The queue always
+contains five types: removing one shifts the others and refills the final
+slot from the bag, without losing pieces at bag boundaries.
+`game_init_seed` enables reproducible tests; `game_init` uses seed 1, while the
+application supplies SDL's high-resolution counter.
 
-## Hold y previsualizaciones
+## Hold and previews
 
-`held_piece == PIECE_COUNT` indica hold vacío. El primer C guarda la pieza
-activa y consume NEXT; los intercambios posteriores no consumen la cola.
-`hold_used` impide repetir hasta el siguiente bloqueo. La pieza entrante
-recupera posición y orientación iniciales; se reinician gravedad, lock delay,
-contador de reinicios y DAS. El spawn ocupado usa la misma salida de game over.
+`held_piece == PIECE_COUNT` indicates an empty hold slot. The first C stores
+the active piece and consumes NEXT; subsequent swaps do not consume the queue.
+`hold_used` prevents another hold until the next lock. The incoming piece
+returns to its initial position and orientation; gravity, lock delay, the
+lock-reset counter, and DAS reset. An occupied spawn uses the same game-over
+path.
 
-`preview.c` dibuja HOLD y las cinco próximas piezas con la paleta compartida,
-centrando sus bloques ocupados. HOLD se atenúa cuando no está disponible.
-Las etiquetas utilizan pequeños glifos propios sin depender de SDL_ttf ni
-archivos de fuentes. El layout comparte medidas con el tablero y escala con
-el espacio lógico de SDL. No se asigna memoria dinámica durante el juego.
+`preview.c` draws HOLD and the five upcoming pieces with the shared palette,
+centering their occupied cells. HOLD is dimmed when unavailable. Labels use
+small built-in glyphs without SDL_ttf or font files. The layout shares board
+measurements and scales with SDL's logical space. No dynamic memory is
+allocated during gameplay.
 
-## Ghost, hard drop y puntuación
+## Ghost, hard drop, and scoring
 
-`game_ghost_piece` copia la pieza activa y busca su última posición válida
-mediante consultas de colisión. No modifica el tablero, los temporizadores,
-la cola ni el randomizador. El renderer dibuja su contorno antes de la pieza
-activa, que lo cubre cuando ambas coinciden. No se muestra tras game over.
+`game_ghost_piece` copies the active piece and finds its last valid position
+through collision queries. It does not change the board, timers, queue, or
+randomizer. The renderer draws its outline before the active piece, which
+covers it when their positions coincide. It is not shown after game over.
 
-Espacio llama a `game_hard_drop` una vez por pulsación, ignorando key repeat.
-Usa la misma consulta que el ghost, suma dos puntos por fila descendida y
-bloquea inmediatamente, incluso si la distancia es cero. Reutiliza la ruta
-de limpieza, avance de NEXT, habilitación de hold y comprobación de spawn.
+Space calls `game_hard_drop` once per press, ignoring key repeat. It uses the
+same query as the ghost, awards two points per row descended, and locks
+immediately, even when the distance is zero. It reuses the line-clear, NEXT
+advance, hold-reset, and spawn-check path.
 
-`scoring.c` concentra las reglas sin depender de SDL. `Game.score` es de
-64 bits. Single/double/triple/tetris dan 100/300/500/800 puntos multiplicados
-por el nivel vigente antes de limpiar. Después se acumulan las líneas y se
-calcula `level = 1 + lines_cleared / 10`. No hay bonos avanzados en esta fase.
-La gravedad usa `max(1/60, 0.8^(level-1))` segundos por fila; el cálculo está
-acotado al alcanzar el mínimo. Soft drop usa el menor intervalo entre esa
-gravedad y 1/30 s. Solo las filas recorridas con soft drop activo suman un
-punto; la gravedad normal y los intentos bloqueados no puntúan.
+`scoring.c` centralizes the rules without depending on SDL. `Game.score` is
+64-bit. Single/double/triple/Tetris clears award 100/300/500/800 points,
+multiplied by the level before the clear. Lines are then accumulated and
+`level = 1 + lines_cleared / 10` is calculated. Advanced bonuses are not
+implemented in this phase. Gravity uses `max(1/60, 0.8^(level-1))` seconds per
+row; calculation stops when the minimum is reached. Soft drop uses the smaller
+of that interval and 1/30 second. Only rows traveled while soft drop is active
+award one point; normal gravity and blocked attempts do not score.
 
-`preview.c` reutiliza los glifos de `text.c` para mostrar SCORE, LINES y LEVEL, con cifras
-que reducen su escala si no caben. Los tests verifican aterrizaje de todas las
-piezas y orientaciones sobre obstáculos, ausencia de mutación, bloqueo inmediato,
-puntuación de 1–4 líneas, cruce de nivel, caídas, gravedad y eventos de Espacio.
+`preview.c` reuses the glyphs from `text.c` to display SCORE, LINES, and LEVEL,
+reducing the numeric scale when needed to fit. Tests verify landing positions
+for all pieces and orientations over obstacles, absence of mutation, instant
+locking, 1–4-line scoring, level transitions, drops, gravity, and Space events.
 
-## Pausa, reinicio e interfaz
+## Pause, restart, and UI
 
-La máquina de estados contiene PLAYING, PAUSED y GAME_OVER. P alterna entre
-PLAYING y PAUSED; no cambia GAME_OVER. Solo PLAYING admite movimientos,
-giros, hold, caídas y actualizaciones. Durante PAUSED se conservan gravedad,
-lock delay y DAS sin consumir tiempo, mientras SDL sigue procesando eventos
-y dibujando. Al pausar se liberan las teclas mantenidas sin reiniciar esos
-relojes, incluso si se pierde el foco; para mover al reanudar hay que pulsar
-otra vez. La pérdida de foco por sí sola sigue sin pausar la partida.
+The state machine contains PLAYING, PAUSED, and GAME_OVER. P toggles between
+PLAYING and PAUSED; it does not change GAME_OVER. Only PLAYING permits
+movement, rotation, hold, drops, and gameplay updates. PAUSED preserves gravity,
+lock delay, and DAS without consuming time, while SDL continues processing
+events and rendering. Pausing releases held keys without resetting those
+timers, even if focus is lost; movement keys must be pressed again after
+resuming. Losing focus alone still does not pause the game.
 
-`game_restart(game, seed)` delega en la inicialización completa: restablece
-el tablero y sus colores, pieza activa, bolsa, NEXT, HOLD, puntuación, líneas,
-nivel, entrada y todos los temporizadores. R usa una nueva semilla del reloj
-SDL, y las pruebas usan semillas explícitas. Funciona desde los tres estados,
-pero nunca revierte una solicitud de salida. La ventana y el renderer se
-conservan; no se reinicia el proceso ni se crean recursos SDL adicionales.
+`game_restart(game, seed)` delegates to full initialization: it resets the
+board and colors, active piece, bag, NEXT, HOLD, score, lines, level, input,
+and all timers. R uses a new seed from the SDL clock; tests use explicit seeds.
+Restart works from all three states but never reverses an exit request.
+The window and renderer remain alive; the process does not restart and no
+additional SDL resources are created.
 
-`text.c` contiene los glifos y el dibujo de texto compartido. `preview.c`
-conserva la responsabilidad de HOLD, NEXT y estadísticas. `ui.c` dibuja el
-título, la guía de controles y los paneles de pausa/game over al final del
-frame. La pieza activa permanece visible en pausa; el spawn inválido se
-oculta en game over. Todas las posiciones derivan del espacio lógico y las
-medidas del tablero, por lo que SDL escala la interfaz con la ventana.
+`text.c` contains the glyphs and shared text drawing code. `preview.c`
+remains responsible for HOLD, NEXT, and statistics. `ui.c` draws the title,
+control hints, and pause/game-over panels at the end of each frame. The active
+piece remains visible while paused; an invalid spawn is hidden after game
+over. Positions derive from the logical space and board dimensions, allowing
+SDL to scale the interface with the window.
 
-Las pruebas cubren bloqueo de acciones en pausa, conservación de temporizadores,
-reanudar un lock parcialmente consumido, spawn ocupado, reinicio desde cada
-estado y eventos P/R sin repetición automática. Se revisaron además imágenes
-del renderizador software de juego, pausa y game over.
+Tests cover blocked actions while paused, timer preservation, resuming a
+partially elapsed lock delay, occupied spawns, restart from every state, and
+P/R events without automatic repeat. Software-rendered images of gameplay,
+pause, and game over were also reviewed.

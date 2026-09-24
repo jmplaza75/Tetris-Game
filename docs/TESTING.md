@@ -1,12 +1,12 @@
-# Pruebas de la Fase 9
+# Phase 9 Testing
 
-Ejecuta `make test` desde la raíz para comprobar el motor, los eventos SDL,
-el renderizador software y tres frames de la aplicación con vídeo dummy.
-Los tests usan `assert` y fallan con código distinto de cero. El Makefile
-aplica `-UNDEBUG` a los ejecutables de prueba para conservar las comprobaciones
-incluso si se aporta `-DNDEBUG`. No se necesitan assets ni interacción manual.
+Run `make test` from the repository root to check the engine, SDL events,
+software renderer, and three application frames using dummy video.
+Tests use `assert` and fail with a nonzero exit code. The Makefile applies
+`-UNDEBUG` to test executables so checks remain active even when `-DNDEBUG`
+is supplied. No assets or manual interaction are required.
 
-## Comandos
+## Commands
 
 ```sh
 make test
@@ -17,52 +17,55 @@ make sanitize-engine
 make sanitize
 ```
 
-`test-engine` compila y enlaza únicamente C del motor; no consulta sdl2-config.
-`test-sdl` requiere SDL2. El renderizador y la aplicación usan vídeo dummy para
-funcionar sin una ventana visible. Las salidas se separan por configuración.
+`test-engine` compiles and links only the C engine; it does not query
+sdl2-config. `test-sdl` requires SDL2. The renderer and application use dummy
+video to run without a visible window. Build outputs are separated by
+configuration.
 
-## Cobertura funcional
+## Functional coverage
 
-- `test_engine.c`: inicialización, tablero vacío, formas de las siete piezas,
-  spawn y tipos inválidos; ejecuta las suites del motor.
-- `test_motion.c`: límites, obstáculos, filas ocultas, coordenadas extremas,
-  gravedad independiente del paso, tiempos inválidos y DAS/ARR.
-- `test_lines.c`: eliminación de 1–4 filas, filas no contiguas, tablero lleno,
-  conservación de colores, lock delay, spawn bloqueado y bloqueo atómico.
-- `test_rotation.c`: cuatro giros en ambos sentidos, pieza O, kicks de T e I,
-  paredes y suelo, rechazo sin mutación y caída rápida.
-- `test_randomizer.c`: 3.200 bolsas sin duplicados, semillas reproducibles,
-  continuidad de NEXT, hold y spawn bloqueado al intercambiar.
-- `test_scoring.c`: ghost sin mutación, hard/soft drop, puntuación de líneas,
-  cambio de nivel, intervalos de gravedad y rechazo tras game over/salida.
-- `test_states.c`: pausa, temporizadores congelados, reanudación del bloqueo,
-  reinicio completo desde todos los estados y salida irreversible.
-- `test_properties.c`: 1.024 tableros deterministas contra un modelo matricial
-  que elimina filas una a una; 12.180 posiciones que incluyen todas las piezas,
-  cuatro giros, límites, filas ocultas y obstáculos. Verifica la ocupación,
-  colores y ausencia de escrituras parciales cuando el bloqueo falla. También
-  agota los 15 reinicios del lock delay mediante movimientos reales.
-- `test_lifecycle.c`: eventos de movimiento, giro, hold, hard drop, foco,
-  pausa, reinicio y salida, incluyendo repetición automática ignorada.
-- `test_renderer.c`: píxeles del ghost y pieza activa, panel de pausa,
-  ocultación de pieza en game over, ausencia de mutación del juego,
-  puntuación de 64 bits, redimensionado y destrucción repetida.
+- `test_engine.c`: initialization, empty board, all seven piece shapes,
+  spawning, and invalid types; runs the engine suites.
+- `test_motion.c`: boundaries, obstacles, hidden rows, extreme coordinates,
+  timestep-independent gravity, invalid time intervals, and DAS/ARR.
+- `test_lines.c`: 1–4-line clears, nonadjacent rows, a full board, color
+  preservation, lock delay, blocked spawning, and atomic locking.
+- `test_rotation.c`: four turns in both directions, the O piece, T and I kicks,
+  walls and floor, rejection without mutation, and soft drop.
+- `test_randomizer.c`: 3,200 bags without duplicates, reproducible seeds,
+  NEXT continuity, hold, and blocked spawning during a swap.
+- `test_scoring.c`: ghost without mutation, hard/soft drop, line scoring,
+  level transitions, gravity intervals, and rejection after game over or exit.
+- `test_states.c`: pause, frozen timers, resuming lock delay, complete restart
+  from every state, and irreversible exit requests.
+- `test_properties.c`: 1,024 deterministic boards compared with a matrix model
+  that removes rows one at a time; 12,180 positions covering all pieces, four
+  turns, boundaries, hidden rows, and obstacles. Checks occupancy, colors, and
+  absence of partial writes when locking fails. Also exhausts all 15 lock-delay
+  resets through actual movement.
+- `test_lifecycle.c`: movement, rotation, hold, hard drop, focus, pause,
+  restart, and exit events, including ignored automatic key repeats.
+- `test_renderer.c`: ghost and active-piece pixels, pause panel, hiding the
+  active piece after game over, absence of game-state mutation, 64-bit scores,
+  resizing, and repeated destruction.
 
-Los modelos usan una secuencia fija para que cualquier fallo sea reproducible.
-Estas cantidades describen casos ejecutados, no porcentajes de cobertura de
-líneas ni una prueba exhaustiva de todas las partidas o tablas SRS.
+The models use a fixed sequence to make failures reproducible. These counts
+refer to executed cases, not line-coverage percentages or exhaustive checks
+of every possible game or SRS table entry.
 
-## Resultado y límites de la validación
+## Validation results and limitations
 
-En macOS ARM64 pasan las suites completas debug y release y el motor con
-AddressSanitizer/UndefinedBehaviorSanitizer. Se verificó una compilación nueva
-sin SDL con `make BUILD_DIR=build/no-sdl SDL_CONFIG=/nonexistent test-engine`.
+On macOS ARM64, the full debug and release suites pass, as does the engine
+with AddressSanitizer/UndefinedBehaviorSanitizer. A fresh build without SDL
+was verified using
+`make BUILD_DIR=build/no-sdl SDL_CONFIG=/nonexistent test-engine`.
 
-El intento de `make sanitize` de esta fase quedó bloqueado en el arranque de
-`test_lifecycle`, con errores de servicios macOS (`_LSModifyNotification` y
-`com.apple.hiservices-xpcservice`). Se terminó el grupo de procesos tras 25 s.
-No se considera validada la integración SDL bajo sanitizadores en este equipo.
+The `make sanitize` attempt in this phase stalled during `test_lifecycle`
+startup, with macOS service errors (`_LSModifyNotification` and
+`com.apple.hiservices-xpcservice`). The process group was terminated after
+25 seconds. SDL integration under sanitizers is not considered validated on
+this machine.
 
-Los tests de píxeles y vídeo dummy no sustituyen una comprobación manual de
-legibilidad, teclado físico, VSync, HiDPI o ventana nativa. Los pasos manuales
-para jugar, pausar, reiniciar y cambiar de tamaño están en el README.
+Pixel checks and dummy-video tests do not replace manual checks of
+readability, physical keyboard input, VSync, HiDPI, or the native window.
+Manual steps for playing, pausing, restarting, and resizing are in the README.

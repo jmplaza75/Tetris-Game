@@ -111,7 +111,7 @@ advances gameplay. A blocked spawn ends the game; restarting initializes all
 engine state with a new seed while keeping the SDL window and renderer alive.
 There are no application-owned dynamic allocations in the gameplay loop.
 
-See the [detailed architecture notes](docs/ARCHITECTURE.md) (Spanish).
+See the [detailed architecture notes](docs/ARCHITECTURE.md).
 
 ## Algorithms and scoring
 
@@ -161,7 +161,7 @@ ASan/UBSan. The full sanitizer suite currently stalls at SDL integration startup
 on the development machine, with macOS service errors; it is not claimed as
 passing. The normal SDL suites and engine sanitizer suite pass independently.
 
-See the [test guide](docs/TESTING.md) (Spanish) for scope and limitations.
+See the [test guide](docs/TESTING.md) for scope and limitations.
 Dummy-video tests do not replace native-window, HiDPI, or VSync checks. For a
 manual check, run the game, move/rotate/drop pieces, use HOLD, clear lines,
 pause near the floor, resume, restart after game over, and resize the window.
@@ -184,4 +184,4 @@ build/       Generated binaries and objects by configuration (gitignored)
 The playable C implementation and phase 9 test suite are complete. Further
 work includes expanded technical documentation, benchmarks, and experimental
 ARM64 routines compared against the C reference implementation. Audio is also
-not implemented. No benchmark results or Assembly speedups are claimed yet.
+not implemented.
