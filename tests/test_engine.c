@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "game.h"
 
+void test_properties(void);
 void test_states(void);
 void test_scoring(void);
 void test_motion(void);
@@ -96,6 +97,7 @@ int main(void)
     test_board();
     test_pieces();
     test_initialization();
+    test_properties();
     test_states();
     test_scoring();
     test_motion();
