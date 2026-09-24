@@ -1,4 +1,4 @@
-# Arquitectura con rotación y caída rápida
+# Arquitectura de la Fase 7
 
 `main.c` inicializa SDL, crea el renderizador y controla el ciclo de vida.
 Ante un fallo devuelve un código distinto de cero y muestra el error de SDL.
@@ -38,7 +38,7 @@ superponerse a un bit ocupado. Así, una caja puede salir parcialmente del
 tablero cuando las celdas que quedan fuera están vacías. La consulta no muta
 el tablero ni la pieza; el movimiento solo se aplica si la consulta lo permite.
 
-La gravedad consume un intervalo de un segundo por fila, conservando el
+La gravedad empieza con un intervalo de un segundo por fila, conservando el
 tiempo sobrante. Cuando encuentra un obstáculo descarta el tiempo pendiente.
 Los intervalos no positivos o no finitos se ignoran; el bucle principal entrega
 pasos de 1/60 s. Una llamada con un intervalo mayor se subdivide para ordenar
@@ -56,12 +56,12 @@ completas y copia las restantes hacia abajo junto con sus colores. Vacía las
 filas superiores sobrantes y devuelve el número eliminado, que `Game` acumula
 en `lines_cleared`. Incluye filas ocultas y elimina también filas no contiguas.
 
-Después se genera la siguiente pieza de una secuencia fija provisional,
+Después se toma la primera pieza de la cola NEXT,
 se reinician gravedad, lock delay y DAS, y se comprueba su posición inicial.
 Si está ocupada, `STATE_GAME_OVER` congela el motor, libera las teclas y oculta
 la pieza que no pudo aparecer. Los eventos de salida y el renderizado siguen
 activos; el título de la ventana indica el bloqueo. La UI y reinicio completos
-se añadirán en la Fase 8. La secuencia se sustituirá por 7-bag en la Fase 6.
+se añadirán en la Fase 8.
 
 Cada pulsación horizontal mueve inmediatamente y espera 150 ms (DAS) antes
 de repetir cada 40 ms (ARR). La última dirección pulsada tiene prioridad;
@@ -97,4 +97,54 @@ La tecla ↓ mueve una fila al pulsar y activa un intervalo de caída de 1/30 s.
 Pulsar o soltar reinicia el acumulador para evitar saltos por tiempo pendiente.
 Soltar o perder el foco cancela la caída rápida. ↑/X y Z generan un giro por
 pulsación, ignorando los eventos de repetición del sistema. La caída rápida
-respeta colisiones y lock delay; no añade puntuación todavía.
+respeta colisiones y lock delay y suma un punto por cada fila recorrida.
+
+## Randomizador y cola
+
+`Randomizer` pertenece a cada partida y genera bolsas con I/J/L/O/S/T/Z.
+Fisher-Yates las mezcla con SplitMix64 y selección acotada por rechazo para
+no introducir sesgo de módulo. No se usa `rand()` ni estado global. La cola
+contiene siempre cinco tipos: al extraer uno se desplazan los restantes y
+se repone el último desde la bolsa, sin perder piezas al cambiar de bolsa.
+`game_init_seed` permite pruebas reproducibles; `game_init` usa semilla 1,
+mientras la aplicación aporta el contador de alta resolución de SDL.
+
+## Hold y previsualizaciones
+
+`held_piece == PIECE_COUNT` indica hold vacío. El primer C guarda la pieza
+activa y consume NEXT; los intercambios posteriores no consumen la cola.
+`hold_used` impide repetir hasta el siguiente bloqueo. La pieza entrante
+recupera posición y orientación iniciales; se reinician gravedad, lock delay,
+contador de reinicios y DAS. El spawn ocupado usa la misma salida de game over.
+
+`preview.c` dibuja HOLD y las cinco próximas piezas con la paleta compartida,
+centrando sus bloques ocupados. HOLD se atenúa cuando no está disponible.
+Las etiquetas utilizan pequeños glifos propios sin depender de SDL_ttf ni
+archivos de fuentes. El layout comparte medidas con el tablero y escala con
+el espacio lógico de SDL. No se asigna memoria dinámica durante el juego.
+
+## Ghost, hard drop y puntuación
+
+`game_ghost_piece` copia la pieza activa y busca su última posición válida
+mediante consultas de colisión. No modifica el tablero, los temporizadores,
+la cola ni el randomizador. El renderer dibuja su contorno antes de la pieza
+activa, que lo cubre cuando ambas coinciden. No se muestra tras game over.
+
+Espacio llama a `game_hard_drop` una vez por pulsación, ignorando key repeat.
+Usa la misma consulta que el ghost, suma dos puntos por fila descendida y
+bloquea inmediatamente, incluso si la distancia es cero. Reutiliza la ruta
+de limpieza, avance de NEXT, habilitación de hold y comprobación de spawn.
+
+`scoring.c` concentra las reglas sin depender de SDL. `Game.score` es de
+64 bits. Single/double/triple/tetris dan 100/300/500/800 puntos multiplicados
+por el nivel vigente antes de limpiar. Después se acumulan las líneas y se
+calcula `level = 1 + lines_cleared / 10`. No hay bonos avanzados en esta fase.
+La gravedad usa `max(1/60, 0.8^(level-1))` segundos por fila; el cálculo está
+acotado al alcanzar el mínimo. Soft drop usa el menor intervalo entre esa
+gravedad y 1/30 s. Solo las filas recorridas con soft drop activo suman un
+punto; la gravedad normal y los intentos bloqueados no puntúan.
+
+`preview.c` reutiliza sus glifos para mostrar SCORE, LINES y LEVEL, con cifras
+que reducen su escala si no caben. Los tests verifican aterrizaje de todas las
+piezas y orientaciones sobre obstáculos, ausencia de mutación, bloqueo inmediato,
+puntuación de 1–4 líneas, cruce de nivel, caídas, gravedad y eventos de Espacio.

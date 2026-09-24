@@ -26,6 +26,10 @@ void input_process(Game *game)
                     (void)game_rotate(game, 1);
                 } else if (event.key.keysym.sym == SDLK_z) {
                     (void)game_rotate(game, -1);
+                } else if (event.key.keysym.sym == SDLK_SPACE) {
+                    (void)game_hard_drop(game);
+                } else if (event.key.keysym.sym == SDLK_c) {
+                    (void)game_hold(game);
                 }
             }
         }

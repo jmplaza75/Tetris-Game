@@ -2,21 +2,32 @@
 
 Written from scratch in C. Targeted at Apple Silicon ARM64.
 
-Implementación incremental de Tetris en C17 y SDL2. **Fase 5 y caída rápida implementadas:**
+Implementación incremental de Tetris en C17 y SDL2. **Fase 7 completada:**
 ventana redimensionable de 800 × 720, bucle con actualización fija a 60 Hz,
 tablero de 10 × 24 (20 filas visibles y 4 ocultas) y representación mediante
-bitmasks de los siete tetrominós. Al arrancar aparece una T morada sobre la
+bitmasks de los siete tetrominós. Al arrancar aparece una pieza aleatoria sobre la
 cuadrícula centrada. Se mueve con las flechas izquierda/derecha y cae una
-fila por segundo, respetando los límites y las celdas ocupadas.
+fila por segundo en el nivel inicial, respetando los límites y las celdas ocupadas.
 Tras tocar el suelo o una pieza, hay 500 ms para ajustar la posición antes
 del bloqueo. Los bloques conservan su color, las filas completas desaparecen
 y las superiores bajan. A continuación aparece otra pieza.
 
-La secuencia provisional es T → Z → I → J → L → O → S, repetida;
-el randomizador 7-bag llegará en la Fase 6. Si una nueva pieza no cabe,
+El randomizador 7-bag mezcla las siete piezas sin repeticiones dentro de cada
+bolsa. NEXT muestra las cinco siguientes en orden de arriba abajo. HOLD permite
+guardar una pieza con C; se muestra atenuada cuando ya se ha usado hasta el
+próximo bloqueo. Si una nueva pieza no cabe,
 se detiene la partida y se avisa en el título de la ventana. Por ahora hay
 que salir y volver a abrirla para reiniciar. La interfaz de game over y el
-reinicio corresponden a la Fase 8; puntuación y niveles, a la Fase 7.
+reinicio corresponden a la Fase 8.
+
+La ghost piece muestra con un contorno el aterrizaje de la pieza actual, sin
+modificar la partida. SCORE, LINES y LEVEL se muestran debajo de HOLD.
+Limpiar 1/2/3/4 líneas otorga 100/300/500/800 puntos multiplicados por el
+nivel anterior a la limpieza. Soft drop suma 1 punto por fila y hard drop 2;
+la gravedad y los movimientos bloqueados no dan puntos.
+El nivel empieza en 1 y sube cada 10 líneas. El intervalo de gravedad se
+multiplica por 0,8 por nivel, hasta un mínimo de 1/60 s por fila.
+Soft drop nunca ralentiza la gravedad de los niveles altos.
 
 ## Compilar y ejecutar
 
@@ -44,6 +55,8 @@ make clean
 
 ## Controles actuales
 
+- **Espacio**: hard drop hasta la silueta y bloqueo inmediato.
+- **C**: guardar o intercambiar pieza (una vez antes de cada bloqueo).
 - **↑ / X**: rotación horaria.
 - **Z**: rotación antihoraria.
 - **↓ mantenida**: caída rápida a 30 filas por segundo; al soltar vuelve a la gravedad normal.
@@ -70,25 +83,32 @@ asm/        Reservado para experimentos ARM64 de fases posteriores
 build/      Binarios y objetos separados por configuración (ignorado)
 ```
 
-Consulta [la arquitectura](docs/ARCHITECTURE.md). No hay todavía hard drop, audio, benchmarks ni rutinas Assembly.
+Consulta [la arquitectura](docs/ARCHITECTURE.md). No hay todavía audio, benchmarks ni rutinas Assembly.
 
 ## Verificación manual
 
 Ejecuta `make run`, comprueba la cuadrícula de 10 × 20 y los cuatro bloques
-de la T morada en la parte superior. Comprueba su caída, pulsa y mantén
+de la pieza inicial en la parte superior. Comprueba su caída, pulsa y mantén
 las flechas hasta ambos laterales y espera a que se fije en el suelo y
-aparezca una Z. Completa una fila para verla desaparecer; los bloques que
+aparezca la primera pieza de NEXT. Pulsa C para guardar una pieza; otro C
+antes de bloquearla no debe cambiar nada. Tras el bloqueo, C debe permitir
+recuperarla con su orientación inicial sin consumir NEXT. Completa una fila para verla desaparecer; los bloques que
 estaban encima deben descender manteniendo su color.
+Comprueba que el contorno sigue los movimientos y giros. Pulsa Espacio:
+la pieza debe fijarse en ese lugar y sumar dos puntos por fila descendida.
+Mantener Espacio no debe soltar más piezas. Verifica los contadores del panel
+y la aceleración al alcanzar diez líneas.
 Cambia de aplicación mientras mantienes una flecha: al volver no debe
 seguir moviéndose lateralmente. Cambia el tamaño de la ventana y
 ciérrala con Esc. Vuelve a abrirla y comprueba el botón de cierre.
 `make test` prueba el tablero, las siete formas, el spawn, colisiones,
 gravedad, DAS/ARR, bloqueo, limpieza de filas y colores, spawn bloqueado,
-liberación de teclas, eventos y
+7-bag (3200 bolsas), continuidad de NEXT, hold, ghost sin mutación, hard drop,
+puntuación de líneas y caídas, niveles, liberación de teclas, eventos y
 tres frames con el controlador SDL dummy;
 esa prueba no sustituye la comprobación visual de la ventana nativa.
 
-Validación de rotación y caída rápida: debug y release compilados para ARM64 sin warnings;
+Validación de la Fase 7: debug y release compilados para ARM64 sin warnings;
 `make test` completado correctamente. Las pruebas del motor sin SDL también
 pasan con ASan/UBSan (`make MODE=sanitize build/sanitize/test_engine` y
 `./build/sanitize/test_engine`).

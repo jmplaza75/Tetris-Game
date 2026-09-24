@@ -65,6 +65,8 @@ void test_rotation(void)
 
     Game game;
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     game_set_soft_drop(&game, true);
     assert(game.current_piece.y == 5);
     game_set_soft_drop(&game, true);
@@ -81,6 +83,8 @@ void test_rotation(void)
     assert(!game.down_held);
 
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     game_set_soft_drop(&game, true);
     game_update(&game, 0.6);
     assert(game.current_piece.y == 22 && game.current_piece.type == PIECE_T);
@@ -90,6 +94,8 @@ void test_rotation(void)
     assert(game.board.rows[23] == 0x38);
 
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     game.current_piece.y = 22;
     game_update(&game, 0.4);
     assert(game_rotate(&game, 1));
@@ -101,6 +107,8 @@ void test_rotation(void)
     puts("SRS rotation, kicks and fast soft drop: OK");
 
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     assert(piece_spawn(&game.current_piece, PIECE_I));
     assert(game_rotate(&game, 1));
     for (int y = 20; y < 24; ++y) game.board.rows[y] = (uint16_t)(0x03FF & ~(1U << 5));

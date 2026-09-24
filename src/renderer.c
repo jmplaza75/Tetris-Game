@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include "preview.h"
 
 static const SDL_Color BACKGROUND_COLOR = {18, 23, 34, 255};
 static const SDL_Color GRID_COLOR = {40, 49, 65, 255};
@@ -14,14 +15,7 @@ static const SDL_Color PIECE_COLORS[PIECE_COUNT] = {
     [PIECE_Z] = {235, 88, 107, 255}
 };
 
-enum {
-    CELL_SIZE = 30,
-    CELL_INSET = 2,
-    BOARD_WIDTH = BOARD_COLUMNS * CELL_SIZE,
-    BOARD_HEIGHT = BOARD_VISIBLE_ROWS * CELL_SIZE,
-    BOARD_LEFT = (WINDOW_WIDTH - BOARD_WIDTH) / 2,
-    BOARD_TOP = (WINDOW_HEIGHT - BOARD_HEIGHT) / 2
-};
+
 
 static bool set_color(Renderer *renderer, SDL_Color color)
 {
@@ -29,7 +23,7 @@ static bool set_color(Renderer *renderer, SDL_Color color)
                                  color.b, color.a) == 0;
 }
 
-static bool draw_cell(Renderer *renderer, int x, int y, SDL_Color color)
+static bool draw_cell(Renderer *renderer, int x, int y, SDL_Color color, bool outline)
 {
     if (x < 0 || x >= BOARD_COLUMNS || y < BOARD_HIDDEN_ROWS || y >= BOARD_ROWS) {
         return true;
@@ -39,7 +33,9 @@ static bool draw_cell(Renderer *renderer, int x, int y, SDL_Color color)
         BOARD_TOP + (y - BOARD_HIDDEN_ROWS) * CELL_SIZE + CELL_INSET,
         CELL_SIZE - 2 * CELL_INSET, CELL_SIZE - 2 * CELL_INSET
     };
-    return set_color(renderer, color) && SDL_RenderFillRect(renderer->handle, &cell) == 0;
+    return set_color(renderer, color) &&
+        (outline ? SDL_RenderDrawRect(renderer->handle, &cell) :
+                   SDL_RenderFillRect(renderer->handle, &cell)) == 0;
 }
 
 static bool draw_board(Renderer *renderer, const Board *board)
@@ -69,7 +65,7 @@ static bool draw_board(Renderer *renderer, const Board *board)
             const unsigned int color = board->colors[y][x];
             if (board_is_occupied(board, x, y) &&
                 !draw_cell(renderer, x, y,
-                           color > 0 && color <= PIECE_COUNT ? PIECE_COLORS[color - 1] : LOCKED_COLOR)) {
+                           color > 0 && color <= PIECE_COUNT ? PIECE_COLORS[color - 1] : LOCKED_COLOR, false)) {
                 return false;
             }
         }
@@ -77,13 +73,13 @@ static bool draw_board(Renderer *renderer, const Board *board)
     return true;
 }
 
-static bool draw_piece(Renderer *renderer, const Piece *piece)
+static bool draw_piece(Renderer *renderer, const Piece *piece, bool outline)
 {
     for (int y = 0; y < PIECE_SIZE; ++y) {
         for (int x = 0; x < PIECE_SIZE; ++x) {
             if (piece_has_cell(piece, x, y) &&
                 !draw_cell(renderer, piece->x + x, piece->y + y,
-                           PIECE_COLORS[piece->type])) {
+                           PIECE_COLORS[piece->type], outline)) {
                 return false;
             }
         }
@@ -131,8 +127,12 @@ bool renderer_draw(Renderer *renderer, const Game *game)
         SDL_RenderClear(renderer->handle) != 0) {
         return false;
     }
-    if (!draw_board(renderer, &game->board) ||
-        (game->state == STATE_PLAYING && !draw_piece(renderer, &game->current_piece))) {
+    Piece ghost;
+    const bool has_ghost = game_ghost_piece(game, &ghost);
+    if (!preview_draw(renderer, game, PIECE_COLORS) ||
+        !draw_board(renderer, &game->board) ||
+        (has_ghost && !draw_piece(renderer, &ghost, true)) ||
+        (game->state == STATE_PLAYING && !draw_piece(renderer, &game->current_piece, false))) {
         return false;
     }
     SDL_RenderPresent(renderer->handle);

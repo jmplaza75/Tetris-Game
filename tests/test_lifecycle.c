@@ -10,6 +10,8 @@ int main(void)
     assert(SDL_Init(SDL_INIT_EVENTS) == 0);
     Game game;
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     assert(game.running);
     game_update(&game, 1.0 / 60.0);
     assert(game.running);
@@ -79,6 +81,38 @@ int main(void)
     input_process(&game);
     assert(!game.down_held);
 
+    const PieceType outgoing = game.current_piece.type;
+    const PieceType incoming = game.next[0];
+    event = (SDL_Event){0};
+    event.type = SDL_KEYDOWN;
+    event.key.keysym.sym = SDLK_c;
+    assert(SDL_PushEvent(&event) == 1);
+    input_process(&game);
+    assert(game.held_piece == outgoing && game.current_piece.type == incoming);
+    assert(game.hold_used);
+    event.key.repeat = 1;
+    assert(SDL_PushEvent(&event) == 1);
+    input_process(&game);
+    assert(game.held_piece == outgoing && game.current_piece.type == incoming);
+
+    event = (SDL_Event){0};
+    event.type = SDL_KEYDOWN;
+    event.key.keysym.sym = SDLK_SPACE;
+    const PieceType after_drop = game.next[0];
+    assert(SDL_PushEvent(&event) == 1);
+    input_process(&game);
+    assert(game.current_piece.type == after_drop && game.score > 0);
+    const uint64_t score = game.score;
+    event.key.repeat = 1;
+    assert(SDL_PushEvent(&event) == 1);
+    input_process(&game);
+    assert(game.score == score && game.current_piece.type == after_drop);
+    event.key.repeat = 0;
+    event.type = SDL_KEYUP;
+    assert(SDL_PushEvent(&event) == 1);
+    input_process(&game);
+    assert(game.score == score);
+
     event = (SDL_Event){0};
     event.type = SDL_KEYDOWN;
     event.key.keysym.sym = SDLK_ESCAPE;
@@ -87,6 +121,8 @@ int main(void)
     assert(!game.running);
 
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     assert(game.running);
     event.type = SDL_QUIT;
     assert(SDL_PushEvent(&event) == 1);

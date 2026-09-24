@@ -2,9 +2,11 @@
 #include <stdio.h>
 #include "game.h"
 
+void test_scoring(void);
 void test_motion(void);
 void test_lines(void);
 void test_rotation(void);
+void test_randomizer(void);
 
 static void test_board(void)
 {
@@ -78,7 +80,7 @@ static void test_initialization(void)
     game_request_quit(&game);
     game_init(&game);
     assert(game.running);
-    assert(game.current_piece.type == PIECE_T);
+    assert(game.current_piece.type >= PIECE_I && game.current_piece.type < PIECE_COUNT);
     assert(game.current_piece.x == 3);
     assert(game.current_piece.y == BOARD_HIDDEN_ROWS);
     game_update(&game, 1.0);
@@ -93,9 +95,11 @@ int main(void)
     test_board();
     test_pieces();
     test_initialization();
+    test_scoring();
     test_motion();
     test_lines();
     test_rotation();
+    test_randomizer();
     puts("Board, seven tetrominoes and spawn: OK");
     return 0;
 }

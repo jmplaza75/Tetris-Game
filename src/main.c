@@ -16,7 +16,7 @@ enum { SMOKE_TEST_FRAMES = 3 };
 static int run_loop(Renderer *renderer, bool smoke_test)
 {
     Game game;
-    game_init(&game);
+    game_init_seed(&game, SDL_GetPerformanceCounter());
     const double frequency = (double)SDL_GetPerformanceFrequency();
     Uint64 previous = SDL_GetPerformanceCounter();
     double accumulator = 0.0;

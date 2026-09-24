@@ -54,6 +54,8 @@ void test_lines(void)
 
     Game game;
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     game.current_piece.y = 22;
     game_update(&game, 0.49);
     assert(game.board.rows[23] == 0);
@@ -63,6 +65,8 @@ void test_lines(void)
     assert(game.lock_elapsed == 0.0 && game.gravity_elapsed == 0.0);
 
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     game.current_piece.y = 22;
     game.board.rows[23] = (uint16_t)(0x03FF & ~0x38);
     game_update(&game, 0.5);
@@ -71,6 +75,8 @@ void test_lines(void)
     assert(game.board.colors[23][4] == PIECE_T + 1);
 
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     game.current_piece.y = 22;
     game_update(&game, 0.4);
     game_set_horizontal(&game, 1, true);
@@ -86,6 +92,8 @@ void test_lines(void)
     assert(game.current_piece.type == PIECE_Z);
 
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     game.current_piece.y = 22;
     game.board.rows[4] = 1U << 3; /* Blocks the next Z's spawn. */
     game_update(&game, 0.5);
@@ -96,6 +104,8 @@ void test_lines(void)
     assert(memcmp(&saved, &game.board, sizeof saved) == 0);
     assert(game.horizontal_direction == 0);
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     assert(game.state == STATE_PLAYING && game.lines_cleared == 0);
     puts("Lock delay, row compaction, colors and next spawn: OK");
 }

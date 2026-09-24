@@ -50,7 +50,11 @@ static void test_gravity(void)
 {
     Game single, sliced;
     game_init(&single);
+    (void)piece_spawn(&single.current_piece, PIECE_T);
+    single.next[0] = PIECE_Z;
     game_init(&sliced);
+    (void)piece_spawn(&sliced.current_piece, PIECE_T);
+    sliced.next[0] = PIECE_Z;
     game_update(&single, 0.5);
     assert(single.current_piece.y == 4);
     game_update(&single, 0.5);
@@ -66,12 +70,16 @@ static void test_gravity(void)
     assert(single.current_piece.y == 6);
 
     game_init(&single);
+    (void)piece_spawn(&single.current_piece, PIECE_T);
+    single.next[0] = PIECE_Z;
     single.board.rows[8] = 0x03FF;
     game_update(&single, 2.0);
     assert(single.current_piece.y == 6);
     assert(single.board.rows[8] == 0x03FF);
     assert(single.lock_elapsed == 0.0);
     game_init(&single);
+    (void)piece_spawn(&single.current_piece, PIECE_T);
+    single.next[0] = PIECE_Z;
     game_update(&single, 18.0);
     assert(single.current_piece.y == 22);
     for (int y = 0; y < BOARD_ROWS; ++y) assert(single.board.rows[y] == 0);
@@ -86,6 +94,8 @@ static void test_horizontal(void)
 {
     Game game;
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     game_set_horizontal(&game, -1, true);
     assert(game.current_piece.x == 2);
     game_set_horizontal(&game, -1, true);
@@ -110,6 +120,8 @@ static void test_horizontal(void)
     assert(game.current_piece.x == 7);
     game_release_input(&game);
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     game.board.rows[5] = 1U << 2;
     game_set_horizontal(&game, -1, true);
     assert(game.current_piece.x == 3);
@@ -118,6 +130,8 @@ static void test_horizontal(void)
     game_set_horizontal(&game, 1, true);
     assert(game.current_piece.x == 3);
     game_init(&game);
+    (void)piece_spawn(&game.current_piece, PIECE_T);
+    game.next[0] = PIECE_Z;
     assert(!game.left_held && !game.right_held);
     assert(game.horizontal_direction == 0 && game.gravity_elapsed == 0.0);
 }

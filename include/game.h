@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include "board.h"
 #include "piece.h"
+#include "randomizer.h"
+#include "scoring.h"
+
+enum { NEXT_PIECE_COUNT = 5 };
 
 #define GRAVITY_INTERVAL_SECONDS 1.0
 #define SOFT_DROP_INTERVAL_SECONDS (1.0 / 30.0)
@@ -29,9 +33,20 @@ typedef struct {
     double lock_elapsed;
     unsigned int lock_resets;
     unsigned int lines_cleared;
+    uint64_t score;
+    unsigned int level;
+    Randomizer randomizer;
+    PieceType next[NEXT_PIECE_COUNT];
+    PieceType held_piece; /* PIECE_COUNT means empty. */
+    bool hold_used;
 } Game;
 
 void game_init(Game *game);
+void game_init_seed(Game *game, uint64_t seed);
+bool game_hold(Game *game);
+/* Read-only landing query; false when no playable, valid active piece exists. */
+bool game_ghost_piece(const Game *game, Piece *ghost);
+bool game_hard_drop(Game *game);
 void game_update(Game *game, double delta_seconds);
 void game_request_quit(Game *game);
 /* Direction is -1 (left) or +1 (right). Last pressed direction wins. */

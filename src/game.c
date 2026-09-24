@@ -24,22 +24,34 @@ static bool try_move(Game *game, int dx, int dy)
 
 void game_init(Game *game)
 {
-    *game = (Game){.running = true};
-    board_init(&game->board);
-    (void)piece_spawn(&game->current_piece, PIECE_T);
+    game_init_seed(game, UINT64_C(1));
 }
 
-static void lock_and_spawn(Game *game)
+void game_init_seed(Game *game, uint64_t seed)
 {
-    if (!board_lock_piece(&game->board, &game->current_piece)) {
-        game->state = STATE_GAME_OVER;
-        game_release_input(game);
-        return;
+    *game = (Game){.running = true, .level = 1};
+    board_init(&game->board);
+    randomizer_init(&game->randomizer, seed);
+    game->held_piece = PIECE_COUNT;
+    (void)piece_spawn(&game->current_piece, randomizer_next(&game->randomizer));
+    for (int i = 0; i < NEXT_PIECE_COUNT; ++i) {
+        game->next[i] = randomizer_next(&game->randomizer);
     }
-    game->lines_cleared += board_clear_lines(&game->board);
-    /* Temporary deterministic sequence until the Phase 6 seven-bag. */
-    const PieceType next = (PieceType)((game->current_piece.type + 1) % PIECE_COUNT);
-    (void)piece_spawn(&game->current_piece, next);
+}
+
+static PieceType take_next(Game *game)
+{
+    const PieceType type = game->next[0];
+    for (int i = 1; i < NEXT_PIECE_COUNT; ++i) {
+        game->next[i - 1] = game->next[i];
+    }
+    game->next[NEXT_PIECE_COUNT - 1] = randomizer_next(&game->randomizer);
+    return type;
+}
+
+static void activate_piece(Game *game, PieceType type)
+{
+    (void)piece_spawn(&game->current_piece, type);
     game->gravity_elapsed = 0.0;
     game->lock_elapsed = 0.0;
     game->lock_resets = 0;
@@ -49,6 +61,52 @@ static void lock_and_spawn(Game *game)
         game->state = STATE_GAME_OVER;
         game_release_input(game);
     }
+}
+
+static void lock_and_spawn(Game *game)
+{
+    if (!board_lock_piece(&game->board, &game->current_piece)) {
+        game->state = STATE_GAME_OVER;
+        game_release_input(game);
+        return;
+    }
+    const unsigned int cleared = board_clear_lines(&game->board);
+    game->score += scoring_lines(cleared, game->level);
+    game->lines_cleared += cleared;
+    game->level = scoring_level(game->lines_cleared);
+    game->hold_used = false;
+    activate_piece(game, take_next(game));
+}
+
+bool game_ghost_piece(const Game *game, Piece *ghost)
+{
+    if (!game->running || game->state != STATE_PLAYING ||
+        collision_at(&game->board, &game->current_piece,
+                     game->current_piece.x, game->current_piece.y)) return false;
+    *ghost = game->current_piece;
+    while (!collision_at(&game->board, ghost, ghost->x, ghost->y + 1)) ++ghost->y;
+    return true;
+}
+
+bool game_hard_drop(Game *game)
+{
+    Piece ghost;
+    if (!game_ghost_piece(game, &ghost)) return false;
+    game->score += (uint64_t)(ghost.y - game->current_piece.y) * HARD_DROP_POINTS;
+    game->current_piece = ghost;
+    lock_and_spawn(game);
+    return true;
+}
+
+bool game_hold(Game *game)
+{
+    if (!game->running || game->state != STATE_PLAYING || game->hold_used) return false;
+    const PieceType outgoing = game->current_piece.type;
+    const PieceType incoming = game->held_piece == PIECE_COUNT ? take_next(game) : game->held_piece;
+    game->held_piece = outgoing;
+    game->hold_used = true;
+    activate_piece(game, incoming);
+    return true;
 }
 
 static void update_step(Game *game, double delta_seconds)
@@ -63,7 +121,9 @@ static void update_step(Game *game, double delta_seconds)
         }
     }
     game->gravity_elapsed += delta_seconds;
-    const double fall_interval = game->down_held ? SOFT_DROP_INTERVAL_SECONDS : GRAVITY_INTERVAL_SECONDS;
+    const double gravity_interval = scoring_gravity_interval(game->level);
+    const double fall_interval = game->down_held ?
+        fmin(SOFT_DROP_INTERVAL_SECONDS, gravity_interval) : gravity_interval;
     while (game->gravity_elapsed + 1e-9 >= fall_interval) {
         game->gravity_elapsed -= fall_interval;
         if (game->gravity_elapsed < 0.0) {
@@ -74,6 +134,7 @@ static void update_step(Game *game, double delta_seconds)
             game->gravity_elapsed = 0.0;
             break;
         }
+        if (game->down_held) game->score += SOFT_DROP_POINTS;
     }
     if (collision_at(&game->board, &game->current_piece,
                      game->current_piece.x, game->current_piece.y + 1)) {
@@ -136,7 +197,7 @@ void game_set_soft_drop(Game *game, bool pressed)
         game->down_held == pressed) return;
     game->down_held = pressed;
     game->gravity_elapsed = 0.0;
-    if (pressed) (void)try_move(game, 0, 1);
+    if (pressed && try_move(game, 0, 1)) game->score += SOFT_DROP_POINTS;
 }
 
 bool game_rotate(Game *game, int direction)

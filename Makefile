@@ -9,9 +9,9 @@ MODE ?= debug
 BUILD_DIR := build/$(MODE)
 TARGET := $(BUILD_DIR)/tetris
 TEST_TARGET := $(BUILD_DIR)/test_lifecycle
-ENGINE_OBJECTS := $(BUILD_DIR)/game.o $(BUILD_DIR)/board.o $(BUILD_DIR)/piece.o $(BUILD_DIR)/collision.o $(BUILD_DIR)/rotation.o
+ENGINE_OBJECTS := $(BUILD_DIR)/game.o $(BUILD_DIR)/board.o $(BUILD_DIR)/piece.o $(BUILD_DIR)/collision.o $(BUILD_DIR)/rotation.o $(BUILD_DIR)/randomizer.o $(BUILD_DIR)/scoring.o
 ENGINE_TEST := $(BUILD_DIR)/test_engine
-SOURCES := src/main.c src/game.c src/board.c src/piece.c src/collision.c src/rotation.c src/input.c src/renderer.c
+SOURCES := src/main.c src/game.c src/board.c src/piece.c src/collision.c src/rotation.c src/randomizer.c src/scoring.c src/input.c src/renderer.c src/preview.c
 OBJECTS := $(SOURCES:src/%.c=$(BUILD_DIR)/%.o)
 SDL_CFLAGS = $(shell "$(SDL_CONFIG)" --cflags)
 SDL_LIBS = $(shell "$(SDL_CONFIG)" --libs)
@@ -50,8 +50,8 @@ $(TARGET): $(OBJECTS)
 $(TEST_TARGET): tests/test_lifecycle.c $(ENGINE_OBJECTS) $(BUILD_DIR)/input.o $(wildcard include/*.h) | check-sdl
 	$(CC) $(CPPFLAGS) -Iinclude $(SDL_CFLAGS) $(COMPILE_FLAGS) $(LDFLAGS) tests/test_lifecycle.c $(ENGINE_OBJECTS) $(BUILD_DIR)/input.o $(SDL_LIBS) $(LDLIBS) -o $@
 
-$(ENGINE_TEST): tests/test_engine.c tests/test_motion.c tests/test_lines.c tests/test_rotation.c $(ENGINE_OBJECTS) $(wildcard include/*.h)
-	$(CC) $(CPPFLAGS) -Iinclude $(COMPILE_FLAGS) $(LDFLAGS) tests/test_engine.c tests/test_motion.c tests/test_lines.c tests/test_rotation.c $(ENGINE_OBJECTS) $(LDLIBS) -o $@
+$(ENGINE_TEST): tests/test_engine.c tests/test_motion.c tests/test_lines.c tests/test_rotation.c tests/test_randomizer.c tests/test_scoring.c $(ENGINE_OBJECTS) $(wildcard include/*.h)
+	$(CC) $(CPPFLAGS) -Iinclude $(COMPILE_FLAGS) $(LDFLAGS) tests/test_engine.c tests/test_motion.c tests/test_lines.c tests/test_rotation.c tests/test_randomizer.c tests/test_scoring.c $(ENGINE_OBJECTS) $(LDLIBS) -o $@
 
 run: $(TARGET)
 	./$(TARGET)
